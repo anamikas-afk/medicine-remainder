@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Medicine Reminder</title>
+<style>
+  body { font-family: Arial; font-size: 24px; max-width: 600px; margin: 20px auto; padding: 10px; background: #f4f8ff; }
+  h1 { text-align: center; color: #1a4d99; }
+  input, button { font-size: 24px; padding: 12px; margin: 6px 0; width: 100%; box-sizing: border-box; }
+  button { background: #1a4d99; color: white; border: none; border-radius: 8px; }
+  .card { background: white; padding: 12px; margin: 10px 0; border-radius: 10px; border-left: 10px solid orange; }
+  .card.taken { border-left-color: green; opacity: 0.6; }
+  .note { font-size: 16px; text-align: center; color: gray; }
+</style>
+</head>
+<body>
+<h1>💊 Medicine Reminder</h1>
+<input id="name" placeholder="Medicine name">
+<input id="dose" placeholder="Dose (e.g. 1 tablet)">
+<input id="time" type="time">
+<button onclick="addMed()">Add Reminder</button>
+<div id="list"></div>
+<p class="note">This is only a reminder tool. It does not give medical advice.</p>
+
+<script>
+let meds = JSON.parse(localStorage.getItem("meds") || "[]");
+
+function save() { localStorage.setItem("meds", JSON.stringify(meds)); }
+
+function addMed() {
+  const name = document.getElementById("name").value;
+  const dose = document.getElementById("dose").value;
+  const time = document.getElementById("time").value;
+  if (!name || !time) { alert("Please enter name and time"); return; }
+  meds.push({ name, dose, time, taken: false, alerted: false });
+  save(); show();
+  document.getElementById("name").value = "";
+  document.getElementById("dose").value = "";
+}
+
+function markTaken(i) { meds[i].taken = true; save(); show(); }
+function removeMed(i) { meds.splice(i, 1); save(); show(); }
+
+function show() {
+  meds.sort((a, b) => a.time.localeCompare(b.time));
+  let html = "";
+  meds.forEach((m, i) => {
+    html += `<div class="card ${m.taken ? "taken" : ""}">
+      <b>${m.name}</b> - ${m.dose}<br>⏰ ${m.time}
+      ${m.taken ? "<br>✅ Taken" : `<button onclick="markTaken(${i})">Mark as Taken</button>`}
+      <button onclick="removeMed(${i})" style="background:#c0392b">Delete</button>
+    </div>`;
+  });
+  document.getElementById("list").innerHTML = html;
+}
+
+// check every 20 seconds if a reminder time has arrived
+setInterval(() => {
+  const now = new Date().toTimeString().slice(0, 5);
+  meds.forEach(m => {
+    if (m.time === now && !m.taken && !m.alerted) {
+      m.alerted = true; save();
+      alert("Time to take: " + m.name + " (" + m.dose + ")");
+    }
+  });
+}, 20000);
+
+show();
+</script>
+</body>
+</html>
