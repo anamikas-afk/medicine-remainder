@@ -24,49 +24,64 @@
 <p class="note">This is only a reminder tool. It does not give medical advice.</p>
 
 <script>
-let meds = JSON.parse(localStorage.getItem("meds") || "[]");
+let meds = [];
+const alerted = {};
 
-function save() { localStorage.setItem("meds", JSON.stringify(meds)); }
+async function load() {
+  const res = await fetch("/api/meds");
+  meds = await res.json();
+  show();
+}
 
-function addMed() {
+async function addMed() {
   const name = document.getElementById("name").value;
   const dose = document.getElementById("dose").value;
   const time = document.getElementById("time").value;
   if (!name || !time) { alert("Please enter name and time"); return; }
-  meds.push({ name, dose, time, taken: false, alerted: false });
-  save(); show();
+  await fetch("/api/meds", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, dose, time })
+  });
   document.getElementById("name").value = "";
   document.getElementById("dose").value = "";
+  load();
 }
 
-function markTaken(i) { meds[i].taken = true; save(); show(); }
-function removeMed(i) { meds.splice(i, 1); save(); show(); }
+async function markTaken(id) {
+  await fetch("/api/meds/" + id + "/taken", { method: "PUT" });
+  load();
+}
+
+async function removeMed(id) {
+  await fetch("/api/meds/" + id, { method: "DELETE" });
+  load();
+}
 
 function show() {
   meds.sort((a, b) => a.time.localeCompare(b.time));
   let html = "";
-  meds.forEach((m, i) => {
+  meds.forEach(m => {
     html += `<div class="card ${m.taken ? "taken" : ""}">
       <b>${m.name}</b> - ${m.dose}<br>⏰ ${m.time}
-      ${m.taken ? "<br>✅ Taken" : `<button onclick="markTaken(${i})">Mark as Taken</button>`}
-      <button onclick="removeMed(${i})" style="background:#c0392b">Delete</button>
+      ${m.taken ? "<br>✅ Taken" : `<button onclick="markTaken(${m.id})">Mark as Taken</button>`}
+      <button onclick="removeMed(${m.id})" style="background:#c0392b">Delete</button>
     </div>`;
   });
   document.getElementById("list").innerHTML = html;
 }
 
-// check every 20 seconds if a reminder time has arrived
 setInterval(() => {
   const now = new Date().toTimeString().slice(0, 5);
   meds.forEach(m => {
-    if (m.time === now && !m.taken && !m.alerted) {
-      m.alerted = true; save();
+    if (m.time === now && !m.taken && !alerted[m.id]) {
+      alerted[m.id] = true;
       alert("Time to take: " + m.name + " (" + m.dose + ")");
     }
   });
 }, 20000);
 
-show();
+load();
 </script>
 </body>
 </html>
